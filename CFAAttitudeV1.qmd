@@ -323,11 +323,11 @@ cfa.model6 = cfa(model6, data = data.cfa, estimator = "MLR")
 summary(cfa.model6, fit.measures = T, standardized = T)
 ```
 
-![](images/clipboard-9133593.png)
+# Comparing the Models
 
 ```{r}
 # Grab key measures
-want <- c("chisq","df","cfi","tli","rmsea","rmsea.ci.lower","rmsea.ci.upper","srmr")
+want <- c( "chisq.scaled", "df", "cfi.scaled", "tli.scaled", "rmsea.scaled", "rmsea.ci.lower.scaled", "rmsea.ci.upper.scaled",  "srmr")
 
 fm1 <- fitMeasures(cfa.model1, fit.measures = want)
 fm3 <- fitMeasures(cfa.model3, fit.measures = want)
