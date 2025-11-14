@@ -1,0 +1,271 @@
+---
+title: "CFA Attitude Trial"
+author: "firdaus"
+format: 
+  html:
+    theme: cosmo
+    toc: true
+    toc-location: left
+    toc-depth: 6
+    number-sections: true
+    self-contained: true
+editor: visual
+---
+
+# Preliminaries
+
+## Load Library
+
+```{r}
+library(readxl)
+library(foreign)
+library(psych)
+library(lavaan)  # for CFA
+library(semTools)  # for additional functions in SEM
+library(semPlot)  # for path diagram
+```
+
+## Load Data
+
+```{r}
+data1 = read_excel("CFA_Attitude_trial.xlsx")
+names(data1)
+head(data1)
+
+```
+
+Coding the answers
+
+```{r}
+# Define mapping functions
+likert_map <- function(x) {
+  recode <- c(
+    "Sangat tidak setuju" = 1,
+    "Tidak setuju"        = 2,
+    "Tidak pasti"         = 3,
+    "Setuju"              = 4,
+    "Sangat setuju"       = 5
+  )
+  recode[match(tolower(x), tolower(names(recode)))]
+}
+
+likert_reverse <- function(x) {
+  recode <- c(
+    "Sangat tidak setuju" = 5,
+    "Tidak setuju"        = 4,
+    "Tidak pasti"         = 3,
+    "Setuju"              = 2,
+    "Sangat setuju"       = 1
+  )
+  recode[match(tolower(x), tolower(names(recode)))]
+}
+
+# List of reverse-coded items
+reverse_items <- c("A7","A8","A9","A10","A11","A12","A13")
+
+# Apply transformation from data1 -> data2
+data2 <- data1
+
+for (col in names(data2)) {
+  if (col %in% reverse_items) {
+    data2[[col]] <- likert_reverse(data2[[col]])
+  } else {
+    data2[[col]] <- likert_map(data2[[col]])
+  }
+}
+
+# Convert all to numeric
+data2 <- as.data.frame(lapply(data2, as.numeric))
+```
+
+From EFA, we include only good items across PA1 till PA4.
+
+PA3 (Sex Ed Importance ) : A1, A2, A3, A4, A5, A6 (6 item)
+
+PA2 (Sex Ed Concerns) : A7, A8, A9 (3 item)
+
+PA4 (Soc Sensitivity): A10, A11, A12, A13 (4 item)
+
+PA1 (Parent Role): A14, A15, A16, A17, A18, A19, A20, A21, A22 (9 item)
+
+```{r}
+data.cfa = data2[c("A1", "A2","A3", "A4", "A5", "A6", "A7", "A8", "A9", "A10", "A11", "A12", "A13", "A14", "A15", "A16", "A17", "A18", "A19", "A20", "A21", "A22")]
+```
+
+```{r}
+str(data.cfa)
+```
+
+```{r}
+dim(data.cfa)
+```
+
+```{r}
+names(data.cfa)
+```
+
+```{r}
+head(data.cfa)
+```
+
+# Confirmatory factor analysis
+
+## Preliminary steps
+
+### **Descriptive statistics**
+
+Check minimum/maximum values per item, and screen for any missing values,
+
+```{r}
+describe(data.cfa)
+```
+
+Note that all *n* = 204, no missing values. `min`–`max` cover the whole range of response options.
+
+\% of response to options per item,
+
+```{r}
+response.frequencies(data.cfa)
+```
+
+### **Multivariate normality**
+
+This is done to check the multivariate normality of the data. If the data are normally distributed, we may use maximum likelihood (ML) estimation method for the CFA.
+
+```{r}
+mardia(data.cfa)
+```
+
+the data are not multivariate normal (`kurtosis` \> 5, *P* \< 0.05). We will use **MLR** in our analysis.
+
+## Step 1
+
+Specify the measurement model according to `lavaan` syntax.
+
+```{r}
+model = "
+PA1 =~ A14 + A15 + A16 + A17 + A18 + A19 + A20 + A21 + A22
+PA2 =~ A7 + A8 + A9
+PA3 =~ A1 + A2 + A3 + A4 + A5 + A6
+PA4 =~ A10 + A11 + A12 + A13
+"
+```
+
+PA3 (Sex Ed Importance ) : A1, A2, A3, A4, A5, A6 (6 item)
+
+PA2 (Sex Ed Concerns) : A7, A8, A9 (3 item)
+
+PA4 (Soc Sensitivity): A10, A11, A12, A13 (4 item)
+
+PA1 (Parent Role): A14, A15, A16, A17, A18, A19, A20, A21, A22 (9 item)
+
+## Step 2
+
+### Fit the model
+
+```{r}
+cfa.model = cfa(model, data = data.cfa, estimator = "MLR")
+# cfa.model = cfa(model, data = data.cfa, std.lv = 1)  # factor variance = 1
+summary(cfa.model, fit.measures = T, standardized = T)
+```
+
+The four-factor CFA model demonstrated marginal fit to the data, χ²(203) = 869.12, p \< .001, CFI = 0.86, TLI = 0.85, RMSEA = 0.13 \[90% CI: 0.12–0.14\], SRMR = 0.06. All standardized loadings were significant (0.61–0.96), supporting convergent validity. Factor correlations ranged from 0.09 to 0.61, indicating adequate discriminant validity. Although the overall model fit did not reach ideal thresholds (CFI ≥ 0.90, RMSEA ≤ 0.08), the pattern of loadings suggests that the hypothesized structure is conceptually sound and may benefit from minor re-specifications or correlated residuals.
+
+```{r}
+standardizedSolution(cfa.model)  # standardized, to view the SE of FL
+```
+
+```{r}
+parameterEstimates(cfa.model)  # unstandardized, to view the 95% CI
+```
+
+Localized areas of misfit,
+
+```{r}
+modificationIndices(cfa.model, sort = TRUE, minimum.value = 3.84) # find mi > |3.84|
+```
+
+```{r}
+residuals(cfa.model, type="standardized") # find sr > |2.58|
+```
+
+## Step 3
+
+Refine Model
+
+```{r}
+# Step 1: Add strongest correlated residuals
+model.refined <- '
+  PA1 =~ A14 + A15 + A16 + A17 + A18 + A19 + A20 + A21 + A22
+  PA2 =~ A7 + A8 + A9
+  PA3 =~ A1 + A2 + A3 + A4 + A5 + A6
+  PA4 =~ A10 + A11 + A12 + A13
+  
+  # Correlated residuals (theoretically justified)
+  A12 ~~ A13
+  A17 ~~ A18
+  A10 ~~ A11
+'
+
+fit.refined <- cfa(model.refined, data = data2, estimator = "MLR")
+summary(fit.refined, fit.measures = TRUE, standardized = TRUE)
+
+```
+
+Revise with Model 2
+
+```{r}
+# --- MODEL 2: same factors, keep only significant residual covariances ---
+model2 <- '
+  # Factors
+  PA1 =~ A14 + A15 + A16 + A17 + A18 + A19 + A20 + A21 + A22
+  PA2 =~ A7  + A8  + A9
+  PA3 =~ A1  + A2  + A3  + A4  + A5  + A6
+  PA4 =~ A10 + A11 + A12 + A13
+
+  # Local dependencies retained (significant in Model 1)
+  A12 ~~ A13
+  A17 ~~ A18
+  # A10 ~~ A11  # removed
+'
+
+fit_m1 <- fit.refined   # your saved Model 1 object from the previous run
+fit_m2 <- cfa(model2, data = data2, estimator = "MLR")  # use MLR if you want robust fit
+
+summary(fit_m2, fit.measures = TRUE, standardized = TRUE)
+
+```
+
+```{r}
+# Grab key measures
+want <- c("chisq","df","cfi","tli","rmsea","rmsea.ci.lower","rmsea.ci.upper","srmr")
+
+fm1 <- fitMeasures(fit_m1, fit.measures = want)
+fm2 <- fitMeasures(fit_m2, fit.measures = want)
+
+comp <- rbind(
+  Model1 = fm1,
+  Model2 = fm2,
+  Delta  = fm2 - fm1
+)
+round(comp, 3)
+
+```
+
+```{r}
+anova(fit_m1, fit_m2)   # lavaan will use the Satorra–Bentler scaled test when robust estimators are used
+
+```
+
+# Composite reliability
+
+```{r}
+compRelSEM(fit_m2)
+```
+
+# Path diagram
+
+```{r}
+semPaths(fit_m2, 'path', 'std', style = 'lisrel', 
+         edge.color = 'black')
+```
